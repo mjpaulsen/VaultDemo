@@ -125,3 +125,32 @@ path "sys/capabilities-self"
   capabilities = ["read"]
 }
 EOF
+
+3. Business User With Access to a Business Specific Path.
+
+$ vault policy write bus-group -<<EOF
+#this policy will allow the user to access the bus path "secret/data/team/bus"
+path "secret/data/team/bus"
+{ capabilities = ["create", "read", "update", "delete"]
+}
+EOF
+
+4. Engineering User With Access to an Engineering Specific Path.
+
+$ vault policy write eng-group -<<EOF
+#this policy will allow the user to access the eng path "secret/data/team/eng"
+path "secret/data/team/eng"
+{ capabilities = ["create", "read", "update", "delete"]
+}
+EOF
+
+
+Step 3: confirm the policies are there and view their contents.
+
+$ vault policy list
+
+$ vault policy read admin
+$ vault policy read audit-user
+$ vault policy read bus-group
+$ vault policy read eng-group 
+
