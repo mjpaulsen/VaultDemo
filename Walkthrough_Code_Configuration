@@ -74,7 +74,9 @@ $ vault audit enable file file_path=/tmp/my-file.txt
 
 Listing audit devices will confirm they are present
 
-$ vault audit list
+$ vault audit list -detailed
+
+$ GKE also shows the audit log: https://console.cloud.google.com/logs/viewer?interval=NO_LIMIT&project=vault-gke-cluster-walkthrough&organizationId=0&minLogLevel=0&expandAll=false&timestamp=2020-04-02T18:54:33.465000000Z&customFacets=&limitCustomFacetWidth=true&advancedFilter=logName%3D%22projects%2Fvault-gke-cluster-walkthrough%2Flogs%2Fcloudaudit.googleapis.com%252Factivity%22%0Aresource.type%3D%22k8s_cluster%22%0Aresource.labels.cluster_name%3D%22vault%22%0Aresource.labels.location%3D%22us-east1%22%0AprotoPayload.request.metadata.name%3D%22vault-0%22%0AprotoPayload.methodName:%22pods.%22&scrollTimestamp=2020-04-02T14:16:15.626137000Z
 
 $ vault policy write audit-user -<<EOF
 #Auditors should have read access to the audit logs.
@@ -154,7 +156,8 @@ $ vault policy read audit-user
 $ vault policy read bus-group
 $ vault policy read eng-group 
 
-Step 5: Authenticate with the policies and demonstraite the level of access for each of the policies with use cases:
+Step 5: Authenticate with the policies and demonstraite the level of access for each of the policies with use cases
+NOTE: switching to Vault running on local -dev server for this exercise.  GKE would not work:
 
 1. Key Vault store use case:
 
@@ -184,6 +187,22 @@ $ vault token create -policy=bus-group
 $ vault token create -policy=eng-group
 #create a token and assign it to the admin policy
 
+NOTE: If a token is created by another auth method, they do not have a parent token. However, any tokens created 
+by the auth/token/create API have a parent token, namely the token used to make that request. 
+By maintaining this parent-child relationship, Vault models token trees.  Depending on the order of the token creation,
+revoking a token may be required or look up the existing token.
+
+$ vault token revoke <token_id>
+
+$ vault token lookup
+
 2. Accessing the Audit Log:
 
+We will review the token capabilities along the path to the Audit Log.  Ideally, only the Audit user or Admin should 
+have the capabilities to access the Path.
+
+$ vault token capabilities /tmp/my-file.txt
+#for the local token
+
+$ vault token capabilities <token number> /tmp/my-file.txt
 
