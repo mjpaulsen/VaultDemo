@@ -5,7 +5,7 @@ using HashiCorp Vaults learning lab: https://learn.hashicorp.com/vault/getting-s
 
 Step 2: This demo will create 4 sample vault policies using the following code.
 
-admin:
+1. admin:
 
 $ vault policy write admin -<<EOF
 #HashiCorp guidance states the admin is focused on configuring and 
@@ -66,3 +66,62 @@ path "sys/capabilities-self"
 }
 EOF
 
+2. audit user
+
+Before we create an audit user policy, we need to enable auditing.
+
+$ vault audit enable file file_path=/tmp/my-file.txt
+
+Listing audit devices will confirm they are present
+
+$ vault audit list
+
+$ vault policy write audit-user -<<EOF
+#Auditors should have read access to the audit logs.
+#Within an Entrprise, auditors should not have greater than read access
+#to paths used by the admin or other users.  This is to reduce
+#any risks of making changes by mistake.
+path "var/log"
+{
+  capabilities = ["read"]
+}
+
+path "auth/*"
+{
+  capabilities = ["read"]
+}
+path "sys/auth/*"
+{
+  capabilities = ["read"]
+}
+
+# To list policies - Step 3
+path "sys/policy"
+{
+  capabilities = ["read"]
+}
+path "sys/policy/*"
+{
+  capabilities = ["read"]
+}
+path "secret/*"
+{
+  capabilities = ["read"]
+}
+path "sys/mounts/*"
+{
+  capabilities = ["read"]
+}
+path "sys/health"
+{
+  capabilities = ["read"]
+}
+path "sys/capabilities"
+{
+  capabilities = ["read"]
+}
+path "sys/capabilities-self"
+{
+  capabilities = ["read"]
+}
+EOF
