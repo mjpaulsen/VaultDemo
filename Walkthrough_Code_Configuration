@@ -1,2 +1,6 @@
 
-Step 1: Setup Vault and deploy a HA Vault Cluster within Kubernetes.  This demo used a codelab for Google Kubernetes Engine (GKE): https://codelabs.developers.google.com/codelabs/vault-on-gke/index.html?index=..%2F..cloud#0
+Step 1: Setup Vault and deploy a HA Vault Cluster within Kubernetes.  This demo used a codelab for Google Kubernetes Engine (GKE)
+: https://codelabs.developers.google.com/codelabs/vault-on-gke/index.html?index=..%2F..cloud#0.  The demo can also be setup
+using HashiCorp Vaults learning lab: https://learn.hashicorp.com/vault/getting-started/install
+
+
