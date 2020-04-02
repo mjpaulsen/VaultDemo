@@ -157,7 +157,8 @@ $ vault policy read bus-group
 $ vault policy read eng-group 
 
 Step 5: Authenticate with the policies and demonstraite the level of access for each of the policies with use cases
-NOTE: switching to Vault running on local -dev server for this exercise.  GKE would not work:
+
+#Confirm you are not logged in with root control because when you try to authenticate you'll have full access.
 
 1. Key Vault store use case:
 
