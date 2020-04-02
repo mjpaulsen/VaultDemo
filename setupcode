@@ -181,13 +181,7 @@ export VAULT_TOKEN="$(gsutil cat "gs://${GOOGLE_CLOUD_PROJECT}-vault-storage/roo
     --key vault-init \
     --ciphertext-file - \
     --plaintext-file -)"
-    
-  vault secrets enable kv  
   
-  vault kv put kv/myapp/config \
-    username="appuser" \
-    password="suP3rsec(et!"
-    
  gcloud container clusters create my-apps \
     --cluster-version 1.14 \
     --enable-cloud-logging \
@@ -247,3 +241,6 @@ kubectl create configmap vault \
  kubectl create secret generic vault-tls \
     --from-file "$(pwd)/tls/ca.crt"
    
+ vault secrets enable kv  
+  
+  
