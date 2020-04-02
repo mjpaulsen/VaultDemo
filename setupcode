@@ -1,0 +1,249 @@
+ Consolidated setup code from GKE documentation for Vault.
+ ---------------------------------------------------------
+ 
+ docker run -v $HOME/bin:/software sethvargo/hashicorp-installer vault 1.2.2
+
+ sudo chown -R $(whoami):$(whoami) $HOME/bin/
+ 
+ export PATH=$HOME/bin:$PATH
+
+gsutil mb "gs://${GOOGLE_CLOUD_PROJECT}-vault-storage"
+
+gcloud services enable \
+    cloudapis.googleapis.com \
+    cloudkms.googleapis.com \
+    cloudresourcemanager.googleapis.com \
+    cloudshell.googleapis.com \
+    container.googleapis.com \
+    containerregistry.googleapis.com \
+    iam.googleapis.com
+    
+    gcloud kms keyrings create vault \
+    --location us-east1
+
+gcloud kms keys create vault-init \
+    --location us-east1 \
+    --keyring vault \
+    --purpose encryption
+    
+export SERVICE_ACCOUNT="vault-server@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
+
+gcloud iam service-accounts create vault-server \
+    --display-name "vault service account"
+    
+ gsutil iam ch \
+    "serviceAccount:${SERVICE_ACCOUNT}:objectAdmin" \
+    "serviceAccount:${SERVICE_ACCOUNT}:legacyBucketReader" \
+    "gs://${GOOGLE_CLOUD_PROJECT}-vault-storage"
+    
+  gcloud kms keys add-iam-policy-binding vault-init \
+    --location us-east1 \
+    --keyring vault \
+    --member "serviceAccount:${SERVICE_ACCOUNT}" \
+    --role roles/cloudkms.cryptoKeyEncrypterDecrypter
+    
+   gcloud services enable container.googleapis.com
+   
+export SERVICE_ACCOUNT="vault-server@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
+gcloud container clusters create vault \
+    --cluster-version 1.14 \
+    --enable-autorepair \
+    --enable-autoupgrade \
+    --enable-ip-alias \
+    --machine-type n1-standard-2 \
+    --node-version 1.14 \
+    --num-nodes 1 \
+    --region us-east1 \
+    --scopes cloud-platform \
+    --service-account "${SERVICE_ACCOUNT}"
+    
+    
+ gcloud compute addresses create vault --region "us-east1"
+ 
+ export LB_IP="$(gcloud compute addresses describe vault --region us-east1 --format 'value(address)')"
+ 
+ export DIR="$(pwd)/tls"
+ 
+ mkdir -p $DIR
+ 
+cat > "${DIR}/openssl.cnf" << EOF
+[req]
+default_bits = 2048
+encrypt_key  = no
+default_md   = sha256
+prompt       = no
+utf8         = yes
+
+distinguished_name = req_distinguished_name
+req_extensions     = v3_req
+
+[req_distinguished_name]
+C  = US
+ST = California
+L  = The Cloud
+O  = Demo
+CN = vault
+
+[v3_req]
+basicConstraints     = CA:FALSE
+subjectKeyIdentifier = hash
+keyUsage             = digitalSignature, keyEncipherment
+extendedKeyUsage     = clientAuth, serverAuth
+subjectAltName       = @alt_names
+
+[alt_names]
+IP.1  = ${LB_IP}
+DNS.1 = vault.default.svc.cluster.local
+EOF
+
+openssl genrsa -out "${DIR}/vault.key" 2048
+
+openssl req \
+    -new -key "${DIR}/vault.key" \
+    -out "${DIR}/vault.csr" \
+    -config "${DIR}/openssl.cnf"
+    
+openssl req \
+    -new \
+    -newkey rsa:2048 \
+    -days 120 \
+    -nodes \
+    -x509 \
+    -subj "/C=US/ST=California/L=The Cloud/O=Vault CA" \
+    -keyout "${DIR}/ca.key" \
+    -out "${DIR}/ca.crt"
+    
+  openssl x509 \
+    -req \
+    -days 120 \
+    -in "${DIR}/vault.csr" \
+    -CA "${DIR}/ca.crt" \
+    -CAkey "${DIR}/ca.key" \
+    -CAcreateserial \
+    -extensions v3_req \
+    -extfile "${DIR}/openssl.cnf" \
+    -out "${DIR}/vault.crt"
+    
+  cat "${DIR}/vault.crt" "${DIR}/ca.crt" > "${DIR}/vault-combined.crt"  
+  
+export LB_IP="$(gcloud compute addresses describe vault --region us-east1 --format 'value(address)')"
+
+kubectl create configmap vault \
+    --from-literal "load_balancer_address=${LB_IP}" \
+    --from-literal "gcs_bucket_name=${GOOGLE_CLOUD_PROJECT}-vault-storage" \
+    --from-literal "kms_project=${GOOGLE_CLOUD_PROJECT}" \
+    --from-literal "kms_region=us-east1" \
+    --from-literal "kms_key_ring=vault" \
+    --from-literal "kms_crypto_key=vault-init" \
+    --from-literal="kms_key_id=projects/${GOOGLE_CLOUD_PROJECT}/locations/us-east1/keyRings/vault/cryptoKeys/vault-init"
+    
+   kubectl create secret generic vault-tls \
+    --from-file "$(pwd)/tls/ca.crt" \
+    --from-file "vault.crt=$(pwd)/tls/vault-combined.crt" \
+    --from-file "vault.key=$(pwd)/tls/vault.key"
+    
+  kubectl apply -f https://raw.githubusercontent.com/sethvargo/vault-kubernetes-workshop/master/k8s/vault.yaml  
+  
+export LB_IP="$(gcloud compute addresses describe vault --region us-east1 --format 'value(address)')"
+
+kubectl apply -f - <<EOF
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+  labels:
+    app: vault
+spec:
+  type: LoadBalancer
+  loadBalancerIP: ${LB_IP}
+  externalTrafficPolicy: Local
+  selector:
+    app: vault
+  ports:
+  - name: vault-port
+    port: 443
+    targetPort: 8200
+    protocol: TCP
+EOF
+
+export LB_IP="$(gcloud compute addresses describe vault --region us-east1 --format 'value(address)')"
+
+export VAULT_ADDR="https://${LB_IP}:443"
+
+export VAULT_CACERT="$(pwd)/tls/ca.crt"
+
+export VAULT_TOKEN="$(gsutil cat "gs://${GOOGLE_CLOUD_PROJECT}-vault-storage/root-token.enc" | \
+  base64 --decode | \
+  gcloud kms decrypt \
+    --location us-east1 \
+    --keyring vault \
+    --key vault-init \
+    --ciphertext-file - \
+    --plaintext-file -)"
+    
+  vault secrets enable kv  
+  
+  vault kv put kv/myapp/config \
+    username="appuser" \
+    password="suP3rsec(et!"
+    
+ gcloud container clusters create my-apps \
+    --cluster-version 1.14 \
+    --enable-cloud-logging \
+    --enable-cloud-monitoring \
+    --enable-ip-alias \
+    --no-enable-basic-auth \
+    --no-issue-client-certificate \
+    --machine-type n1-standard-1 \
+    --num-nodes 1 \
+    --region us-west1
+    
+   kubectl create serviceaccount vault-auth
+   
+   kubectl apply -f - <<EOH
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: role-tokenreview-binding
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: vault-auth
+  namespace: default
+EOH
+
+export LB_IP="$(gcloud compute addresses describe vault --region us-east1 --format 'value(address)')"
+
+export CLUSTER_NAME="gke_${GOOGLE_CLOUD_PROJECT}_us-west1_my-apps"
+
+export SECRET_NAME="$(kubectl get serviceaccount vault-auth \
+    -o go-template='{{ (index .secrets 0).name }}')"
+    
+export TR_ACCOUNT_TOKEN="$(kubectl get secret ${SECRET_NAME} \
+    -o go-template='{{ .data.token }}' | base64 --decode)"
+    
+export K8S_HOST="$(kubectl config view --raw \
+    -o go-template="{{ range .clusters }}{{ if eq .name \"${CLUSTER_NAME}\" }}{{ index .cluster \"server\" }}{{ end }}{{ end }}")" 
+    
+ export K8S_CACERT="$(kubectl config view --raw \
+    -o go-template="{{ range .clusters }}{{ if eq .name \"${CLUSTER_NAME}\" }}{{ index .cluster \"certificate-authority-data\" }}{{ end }}{{ end }}" | base64 --decode)"
+    
+ vault auth enable kubernetes
+ 
+ vault write auth/kubernetes/config \
+    kubernetes_host="${K8S_HOST}" \
+    kubernetes_ca_cert="${K8S_CACERT}" \
+    token_reviewer_jwt="${TR_ACCOUNT_TOKEN}"
+
+kubectl create configmap vault \
+    --from-literal "vault_addr=https://${LB_IP}"
+    
+ kubectl create secret generic vault-tls \
+    --from-file "$(pwd)/tls/ca.crt"
+   
