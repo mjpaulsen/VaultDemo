@@ -156,9 +156,10 @@ $ vault policy read audit-user
 $ vault policy read bus-group
 $ vault policy read eng-group 
 
-Step 5: Authenticate with the policies and demonstraite the level of access for each of the policies with use cases
+Step 4: Authenticate with the policies and demonstraite the level of access for each of the policies with use cases
 
-#Confirm you are not logged in with root control because when you try to authenticate you'll have full access.
+You will need unset the vault_token or else you'l have root access
+unset VAULT_TOKEN
 
 1. Access Rights to the Audit Log:
 
