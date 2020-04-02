@@ -3,4 +3,66 @@ Step 1: Setup Vault and deploy a HA Vault Cluster within Kubernetes.  This demo 
 : https://codelabs.developers.google.com/codelabs/vault-on-gke/index.html?index=..%2F..cloud#0.  The demo can also be setup
 using HashiCorp Vaults learning lab: https://learn.hashicorp.com/vault/getting-started/install
 
+Step 2: This demo will create 4 sample vault policies using the following code.
+
+admin:
+
+$ vault policy write admin -<<EOF
+#HashiCorp guidance states the admin is focused on configuring and 
+#maintaining the health of the clusters and providing support.
+#They must be able to mount and manage auth back-ends (auth methods
+#perform authentication and assign identity and a set of policies)
+#mount and manage secret back-ends, create and manage ACL policies
+#and read system heath checks:
+path "auth/*"
+{
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}
+
+# List, create, update, and delete auth backends
+path "sys/auth/*"
+{
+  capabilities = ["create", "read", "update", "delete", "sudo"]
+}
+
+# To list policies - Step 3
+path "sys/policy"
+{
+  capabilities = ["read"]
+}
+
+# Create and manage ACL policies broadly across Vault
+path "sys/policy/*"
+{
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}
+
+# List, create, update, and delete key/value secrets
+path "secret/*"
+{
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}
+
+# Manage and manage secret backends broadly across Vault.
+path "sys/mounts/*"
+{
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}
+
+# Read health checks
+path "sys/health"
+{
+  capabilities = ["read", "sudo"]
+}
+
+path "sys/capabilities"
+{
+  capabilities = ["create", "update"]
+}
+
+path "sys/capabilities-self"
+{
+  capabilities = ["create", "update"]
+}
+EOF
 
