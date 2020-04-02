@@ -158,8 +158,7 @@ $ vault policy read eng-group
 
 Step 4: Authenticate with the policies and demonstraite the level of access for each of the policies with use cases
 
-You will need unset the vault_token or else you'l have root access
-unset VAULT_TOKEN
+Usting HTTP APIs guidance: https://learn.hashicorp.com/vault/getting-started/apis
 
 1. Access Rights to the Audit Log:
 
