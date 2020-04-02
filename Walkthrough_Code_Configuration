@@ -154,37 +154,36 @@ $ vault policy read audit-user
 $ vault policy read bus-group
 $ vault policy read eng-group 
 
-Step 4: map the policies to role which will leverage Kubernetes authentication which was enabled in the setup.
-
-$ vault write auth/kubernetes/role/admin-role \
-    bound_service_account_names=default \
-    bound_service_account_namespaces=default \
-    policies=default,admin \
-    ttl=15m
-
-$ vault write auth/kubernetes/role/audit-role \
-    bound_service_account_names=default \
-    bound_service_account_namespaces=default \
-    policies=default,audit-user \
-    ttl=15m
-    
-$ vault write auth/kubernetes/role/bus-role \
-    bound_service_account_names=default \
-    bound_service_account_namespaces=default \
-    policies=default,bus-group \
-    ttl=15m
-    
-$ vault write auth/kubernetes/role/eng-role \
-    bound_service_account_names=default \
-    bound_service_account_namespaces=default \
-    policies=default,eng-group \
-    ttl=15m    
-    
-Step 5: demonstraing the level of access for each of the policies with use cases:
+Step 5: Authenticate with the policies and demonstraite the level of access for each of the policies with use cases:
 
 1. Key Vault store use case:
 
+$ vault secrets enable -path=secret/ kv-v2
+#add secret path to the secrets list
+
+$ vault token create -policy=admin
+#create a token and assign it to the admin policy
+
+$ vault login <add token id>
+#login with the token and authenticate to vault
+
+$ vault kv put secret/creds password="my-long-password"
+#while authenticated with the admin policy try to write data to the secret path
+
+$ vault kv get secret/creds
+#view the secret
+
+Repeat the process with the other accounts and confirm you can't make changes to the KV
+
+$ vault token create -policy=audit-user
+#create a token and assign it to the auidt policy
+
+$ vault token create -policy=bus-group
+#create a token and assign it to the admin policy
+
+$ vault token create -policy=eng-group
+#create a token and assign it to the admin policy
+
 2. Accessing the Audit Log:
 
-3. Accessing a Token:
 
