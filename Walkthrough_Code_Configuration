@@ -83,7 +83,7 @@ $ vault policy write audit-user -<<EOF
 #Within an Entrprise, auditors should not have greater than read access
 #to paths used by the admin or other users.  This is to reduce
 #any risks of making changes by mistake.
-path "var/log"
+path "/tmp/*"
 {
   capabilities = ["read"]
 }
@@ -160,24 +160,13 @@ Step 5: Authenticate with the policies and demonstraite the level of access for 
 
 #Confirm you are not logged in with root control because when you try to authenticate you'll have full access.
 
-1. Key Vault store use case:
+1. Access Rights to the Audit Log:
 
-$ vault secrets enable -path=secret/ kv-v2
-#add secret path to the secrets list
+We will setup tokens and authenticate.  Then we'll review the token capabilities along the path to the Audit Log.  
+Ideally, only the Audit user or Admin should have the capabilities to access the Path.
 
 $ vault token create -policy=admin
 #create a token and assign it to the admin policy
-
-$ vault login <add token id>
-#login with the token and authenticate to vault
-
-$ vault kv put secret/creds password="my-long-password"
-#while authenticated with the admin policy try to write data to the secret path
-
-$ vault kv get secret/creds
-#view the secret
-
-Repeat the process with the other accounts and confirm you can't make changes to the KV
 
 $ vault token create -policy=audit-user
 #create a token and assign it to the auidt policy
@@ -188,6 +177,31 @@ $ vault token create -policy=bus-group
 $ vault token create -policy=eng-group
 #create a token and assign it to the admin policy
 
+$ vault login <add token id>
+#login with the token and authenticate to vault
+
+$ vault token capabilities /tmp/my-file.txt
+#for the local token to confirm the current token you are logged in as.
+
+$ vault token capabilities <token number> /tmp/my-file.txt
+#check each token.  All should be deny excpet Audit.
+
+2. Key Vault store use case:
+
+$ vault secrets enable -path=secret/ kv-v2
+#add secret path to the secrets list
+
+$ vault login <add token id>
+#login with the token and authenticate to vault
+
+$ vault kv put secret/creds password="my-long-password"
+#while authenticated with the admin policy try to write data to the secret path
+
+$ vault kv get secret/creds
+#view the secret
+
+Now, try creating a secret with the other accounts.  You should not have access to do this.
+
 NOTE: If a token is created by another auth method, they do not have a parent token. However, any tokens created 
 by the auth/token/create API have a parent token, namely the token used to make that request. 
 By maintaining this parent-child relationship, Vault models token trees.  Depending on the order of the token creation,
@@ -197,13 +211,4 @@ $ vault token revoke <token_id>
 
 $ vault token lookup
 
-2. Accessing the Audit Log:
-
-We will review the token capabilities along the path to the Audit Log.  Ideally, only the Audit user or Admin should 
-have the capabilities to access the Path.
-
-$ vault token capabilities /tmp/my-file.txt
-#for the local token
-
-$ vault token capabilities <token number> /tmp/my-file.txt
 
