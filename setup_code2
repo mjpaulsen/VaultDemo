@@ -1,7 +1,0 @@
-Setup using HashiCorp instructions: https://learn.hashicorp.com/vault/getting-started-k8s/k8s-intro
-
-minikube start --memory 4096
-
-helm init
-
-#Setup the policies and create the tokens
