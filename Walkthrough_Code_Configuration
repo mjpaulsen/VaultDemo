@@ -212,3 +212,25 @@ $ vault token revoke <token_id>
 $ vault token lookup
 
 
+NOTE: when logging with the Tokens, while using the Google 'Using HashiCorp Vault on GKE' tutorial:
+https://codelabs.developers.google.com/codelabs/vault-on-gke/index.html?index=..%2F..cloud#0
+you will get a similar warning: markjpaulsen@cloudshell:~ (newprojectfor-testing)$ vault login s.AQeur5hRGYTZrM3qCgSQOsSe
+WARNING! The VAULT_TOKEN environment variable is set! This takes precedence
+over the value set by this command. To use the value set by this command,
+unset the VAULT_TOKEN environment variable or set it to the token displayed
+below.
+
+For the Policies to work properly, you'll need to first run the following command to set the VAULT_TOKEN to the Token you created.
+export VAULT_TOKEN = <the token created which is linked to the 4 policies created above>
+
+Then run through the step 4 use cases successfully.  
+
+One last note: to create new tokens you'll need to reset the VAULT_TOKEN back to the root token with this command -
+export VAULT_TOKEN="$(gsutil cat "gs://${GOOGLE_CLOUD_PROJECT}-vault-storage/root-token.enc" | \
+  base64 --decode | \
+  gcloud kms decrypt \
+    --location us-east1 \
+    --keyring vault \
+    --key vault-init \
+    --ciphertext-file - \
+    --plaintext-file -)"
